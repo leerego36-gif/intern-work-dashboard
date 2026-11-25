@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matteson Intern Work Time Status</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js, Annotation Plugin & DataLabels Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+  <!-- Google Fonts: Inter & Noto Sans KR -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans KR', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.25); }
+    }
+    .live-dot {
+      animation: pulse-dot 1.8s infinite ease-in-out;
+    }
+    .thin-scroll::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    .thin-scroll::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.45);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen lg:h-screen lg:overflow-hidden flex flex-col antialiased select-none">
+
+  <!-- Compact Top Header -->
+  <header class="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 shrink-0">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3">
+      
+      <!-- Left: Title & Live Status -->
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-2xs shrink-0">
+          ⏱️
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <div>
+            <h1 id="appTitle" class="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
+              Matteson 인턴 근무시간 현황
+            </h1>
+            <p id="appSubtitle" class="text-[11px] text-slate-500 leading-tight">
+              Matteson Plant Intern Work Time &amp; Post-12:10am Shift Tracking
+            </p>
+          </div>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 ml-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot"></span>
+            <span>Live on</span>
+          </span>
+          <span id="updateCycleLabel" class="hidden xl:inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+            업데이트 주기: 주1일 (매일 자정)
+          </span>
+        </div>
+      </div>
+
+      <!-- Right Controls: Month Dropdown + Week Dropdown + Language Toggle -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Month Selector Box -->
+        <div class="relative">
+          <select id="monthSelect" onchange="onMonthChange()" aria-label="Month Selector"
+            class="appearance-none bg-white border border-slate-300 hover:border-blue-500 text-slate-800 text-xs font-semibold rounded-lg pl-3 pr-7 py-1.5 shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 cursor-pointer transition-colors">
+            <option value="2026-11">2026년 11월</option>
+            <option value="2026-12">2026년 12월</option>
+          </select>
+          <span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-slate-400 text-[10px]">▼</span>
+        </div>
+
+        <!-- Week Selector Box -->
+        <div class="relative">
+          <select id="weekSelect" onchange="onWeekChange()" aria-label="Week Selector"
+            class="appearance-none bg-blue-50/70 border border-blue-200 hover:border-blue-500 text-blue-900 text-xs font-semibold rounded-lg pl-3 pr-7 py-1.5 shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 cursor-pointer transition-colors">
+            <!-- Dynamically populated -->
+          </select>
+          <span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-blue-500 text-[10px]">▼</span>
+        </div>
+
+        <!-- Language Switcher -->
+        <div class="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+          <button id="btnLangKo" onclick="setLanguage('ko')" class="px-2.5 py-1 text-xs font-semibold rounded-md transition-all bg-white text-blue-600 shadow-2xs">
+            한글
+          </button>
+          <button id="btnLangEn" onclick="setLanguage('en')" class="px-2.5 py-1 text-xs font-semibold rounded-md transition-all text-slate-600 hover:text-slate-900">
+            English
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Single-Screen Dashboard Workspace -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-3 flex flex-col gap-3 min-h-0">
+
+    <!-- Top Summary Cards (3 Compact Cards in a Row) -->
+    <section class="grid grid-cols-1 md:grid-cols-12 gap-3 shrink-0">
+      
+      <!-- Card 1: Directive & Average (3 cols) -->
+      <div class="md:col-span-3 bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex flex-col justify-between shadow-2xs">
+        <div class="flex items-center justify-between">
+          <span id="kpiSummaryTitle" class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">근무 요약 (14명)</span>
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold">
+            <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+            <span id="kpiLimitBadge">42.0h 기준</span>
+          </span>
+        </div>
+        <div class="my-1 flex items-baseline justify-between">
+          <div>
+            <span id="kpiAvgLabel" class="text-xs text-slate-500 mr-1.5">평균 근무</span>
+            <span id="kpiAvgValue" class="text-2xl font-extrabold text-blue-600 tracking-tight">52.8h</span>
+          </div>
+          <div class="text-right">
+            <span id="kpiTotalPeople" class="text-sm font-bold text-slate-800">총 14명</span>
+            <span class="block text-[10px] text-slate-400">RM 6 · Cell 3 · FG 5</span>
+          </div>
+        </div>
+        <div id="kpiPeriodNote" class="text-[11px] font-semibold text-slate-700 truncate border-t border-slate-100 pt-1">
+          지시사항 : 주당 42시간 및 자정(12:10am) 이후 근무 불가
+        </div>
+      </div>
+
+      <!-- Card 2: Over 42h Workers (4 cols) -->
+      <div class="md:col-span-4 bg-red-50/60 rounded-xl border border-red-200 px-3.5 py-2.5 flex flex-col justify-between shadow-2xs">
+        <div class="flex items-center justify-between mb-1.5">
+          <span id="over42Title" class="text-xs font-bold text-red-700 flex items-center gap-1.5">
+            <span>📌</span> <span>42시간 초과 근무자</span>
+          </span>
+          <span id="over42CountBadge" class="px-2 py-0.5 rounded-full bg-red-600 text-white text-[11px] font-bold">11명</span>
+        </div>
+        <div id="over42List" class="flex flex-wrap gap-1 max-h-[58px] overflow-y-auto thin-scroll pr-0.5">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Card 3: Post-12:10am Workers (5 cols) -->
+      <div class="md:col-span-5 bg-slate-900 text-white rounded-xl border border-slate-800 px-3.5 py-2.5 flex flex-col justify-between shadow-2xs">
+        <div class="flex items-center justify-between mb-1.5">
+          <span id="midnightTitle" class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+            <span>🌙</span> <span>12:10am 이후 근무자</span>
+          </span>
+          <span id="midnightCountBadge" class="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[11px] font-extrabold">5명</span>
+        </div>
+        <div id="midnightList" class="flex flex-wrap gap-1 max-h-[58px] overflow-y-auto thin-scroll pr-0.5">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Main Combo Chart Card (Fills Remaining Screen Height) -->
+    <section class="flex-1 bg-white rounded-xl border border-slate-200 p-4 flex flex-col min-h-[380px] shadow-2xs relative">
+      
+      <!-- Chart Header & Simplified Legend -->
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2 shrink-0">
+        <div>
+          <h2 id="chartTitle" class="text-sm sm:text-base font-bold text-slate-900">
+            인턴별 총 근무시간 및 12:10am 이후 근무 횟수 현황 — 전체 14명
+          </h2>
+          <p id="chartSubtitle" class="text-[11px] text-slate-500">
+            파란색 막대: 총 근무시간 · 검정색 점: 12:10am 이후 근무 횟수 · 마우스 오버 시 상세 시간 확인
+          </p>
+        </div>
+
+        <!-- Simplified 3-Item Legend -->
+        <div class="flex flex-wrap items-center gap-4 text-xs font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-xs bg-blue-600 inline-block"></span>
+            <span id="legendBar" class="text-slate-700 font-semibold">총 근무시간 (h)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-4 border-t-2 border-dashed border-red-600 inline-block"></span>
+            <span id="legendMax" class="text-red-600 font-bold">최대 기준선 42h</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-slate-900 border-2 border-white shadow-2xs inline-block"></span>
+            <span id="legendDot" class="text-slate-900 font-semibold">12:10am 이후 근무 횟수</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas Wrapper -->
+      <div class="relative flex-1 w-full min-h-0">
+        <canvas id="comboChart"></canvas>
+        <!-- Empty / Scheduled Overlay for Dec 2026 -->
+        <div id="emptyOverlay" class="hidden absolute inset-0 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 pointer-events-none">
+          <span class="text-2xl mb-1">📅</span>
+          <p id="emptyOverlayTitle" class="text-sm font-bold text-slate-700">2026년 12월 근무 데이터 집계 예정</p>
+          <p id="emptyOverlaySub" class="text-xs text-slate-500 mt-0.5">매주 자정 자동 업데이트를 통해 순차 반영됩니다.</p>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    // Register ChartDataLabels plugin
+    Chart.register(ChartDataLabels);
+
+    // =========================================================================
+    // 1. EXACT SPREADSHEET DATASET (Recalculated with strictly > 12:10 AM rule)
+    // =========================================================================
+    const internData = [
+      {
+        firstName: 'Tae Hun',
+        name: 'Tae Hun Kim',
+        koName: '김태훈',
+        dept: 'FG',
+        novW1: { hours: 66.5, midnight: 1, logs: ['11/16 (2:43pm~1:00am)'] },
+        novW2: { hours: 6.7, midnight: 0, logs: [] }, // Ended 12:10am exact -> 0
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Minseo',
+        name: 'Minseo Kim',
+        koName: '김민서',
+        dept: 'RM',
+        novW1: { hours: 63.5, midnight: 0, logs: [] },
+        novW2: { hours: 9.5, midnight: 0, logs: [] }, // Ended 12:05am -> 0
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Junho',
+        name: 'Junho Bae',
+        koName: '배준호',
+        dept: 'Cell',
+        novW1: { hours: 54.3, midnight: 0, logs: [] },
+        novW2: { hours: 11.5, midnight: 0, logs: [] }, // Ended 12:05am -> 0
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Jihye',
+        name: 'Jihye Lim',
+        koName: '임지혜',
+        dept: 'Cell',
+        novW1: {
+          hours: 53.3,
+          midnight: 5,
+          logs: [
+            '11/18 (10:38pm~1:49pm)',
+            '11/19 (10:54pm~8:54am)',
+            '11/20 (7:45pm~9:17am)',
+            '11/21 (8:07pm~8:50am)',
+            '11/22 (8:05pm~12:00pm)'
+          ]
+        },
+        novW2: { hours: 12.0, midnight: 1, logs: ['11/23 (12:00am~12:00pm)'] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Yoonseo',
+        name: 'Yoonseo Cha',
+        koName: '차윤서',
+        dept: 'RM',
+        novW1: { hours: 57.0, midnight: 0, logs: [] },
+        novW2: { hours: 0.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Seunghyun',
+        name: 'Seunghyun Lee',
+        koName: '이승현',
+        dept: 'RM',
+        novW1: { hours: 46.0, midnight: 0, logs: [] },
+        novW2: { hours: 11.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Yuha',
+        name: 'Yuha Kim',
+        koName: '김유하',
+        dept: 'RM',
+        novW1: { hours: 45.1, midnight: 0, logs: [] },
+        novW2: { hours: 8.8, midnight: 0, logs: [] }, // Ended 12:05am -> 0
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Jisung',
+        name: 'Jisung Heo',
+        koName: '허지성',
+        dept: 'FG',
+        novW1: { hours: 52.2, midnight: 0, logs: [] },
+        novW2: { hours: 0.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Sangyeon',
+        name: 'Sangyeon Lee',
+        koName: '이상연',
+        dept: 'FG',
+        novW1: { hours: 41.1, midnight: 1, logs: ['11/17 (5:02pm~12:16am)'] },
+        novW2: { hours: 11.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Sieun',
+        name: 'Sieun Kim',
+        koName: '김시은',
+        dept: 'RM',
+        novW1: { hours: 50.1, midnight: 0, logs: [] },
+        novW2: { hours: 0.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Suyeon',
+        name: 'Suyeon Park',
+        koName: '박수연',
+        dept: 'Cell',
+        novW1: {
+          hours: 49.1,
+          midnight: 4,
+          logs: [
+            '11/16 (3:24pm~12:35am)',
+            '11/17 (4:15pm~12:55am)',
+            '11/18 (3:30pm~12:25am)',
+            '11/19 (12:01pm~12:27am)'
+          ]
+        },
+        novW2: { hours: 0.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Subin',
+        name: 'Subin Hwang',
+        koName: '황수빈',
+        dept: 'FG',
+        novW1: { hours: 31.7, midnight: 0, logs: [] },
+        novW2: { hours: 6.8, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Gaeun',
+        name: 'Gaeun Han',
+        koName: '한가은',
+        dept: 'RM',
+        novW1: { hours: 18.8, midnight: 1, logs: ['11/22 (2:09pm~12:32am)'] },
+        novW2: { hours: 11.6, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Garam',
+        name: 'Garam Jo',
+        koName: '조가람',
+        dept: 'FG',
+        novW1: { hours: 12.8, midnight: 0, logs: [] },
+        novW2: { hours: 9.7, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      }
+    ];
+
+    // =========================================================================
+    // 2. STATE & I18N DICTIONARY
+    // =========================================================================
+    let currentLang = 'ko';
+    let selectedMonth = '2026-11';
+    let selectedWeek = 'nov-all';
+    let chartInstance = null;
+
+    const weekOptionsMap = {
+      '2026-11': [
+        { value: 'nov-all', ko: '11월 전체 누적', en: 'Nov Cumulative' },
+        { value: 'nov-w1',  ko: '11/16 ~ 11/22 (1주차)', en: '11/16 ~ 11/22 (Week 1)' },
+        { value: 'nov-w2',  ko: '11/23 ~ 11/29 (2주차)', en: '11/23 ~ 11/29 (Week 2)' }
+      ],
+      '2026-12': [
+        { value: 'dec-all', ko: '12월 전체 누적', en: 'Dec Cumulative' },
+        { value: 'dec-w1',  ko: '11/30 ~ 12/06 (1주차 예정)', en: '11/30 ~ 12/06 (Week 1 Scheduled)' }
+      ]
+    };
+
+    const i18n = {
+      ko: {
+        appTitle: 'Matteson 인턴 근무시간 현황',
+        appSubtitle: 'Matteson Plant Intern Work Time & Post-12:10am Shift Tracking',
+        updateCycleLabel: '업데이트 주기: 주1일 (매일 자정)',
+        monthOptions: { '2026-11': '2026년 11월', '2026-12': '2026년 12월' },
+        kpiSummaryTitle: '근무 요약 (14명)',
+        kpiLimitBadge: '42.0h 기준',
+        kpiAvgLabel: '평균 근무',
+        kpiTotalPeople: '총 14명',
+        kpiPeriodNote: '지시사항 : 주당 42시간 및 자정(12:10am) 이후 근무 불가',
+        over42Title: '42시간 초과 근무자',
+        midnightTitle: '12:10am 이후 근무자',
+        countSuffix: '명',
+        timesSuffix: '회',
+        noneOver42: '초과 근무자 없음 (0명)',
+        noneMidnight: '12:10am 이후 근무자 없음 (0명)',
+        chartTitle: '인턴별 총 근무시간 및 12:10am 이후 근무 횟수 현황 — 전체 14명',
+        chartSubtitle: '파란색 막대: 총 근무시간 · 검정색 점: 12:10am 이후 근무 횟수 · 마우스 오버 시 상세 시간 확인',
+        legendBar: '총 근무시간 (h)',
+        legendDot: '12:10am 이후 근무 횟수',
+        legendMax: '최대 기준선 42h',
+        yLeftTitle: '총 근무시간 (Hours)',
+        yRightTitle: '12:10am 이후 근무 횟수 (회)',
+        maxLineLabel: '최대 기준선 42h',
+        tooltipHours: '총 근무시간',
+        tooltipMidnight: '12:10am 이후 근무 횟수',
+        tooltipOver: (diff) => `+${diff.toFixed(1)}h 초과`,
+        tooltipNormal: '42h 이내',
+        emptyOverlayTitle: '2026년 12월 근무 데이터 집계 예정',
+        emptyOverlaySub: '주 1일(매일 자정) 업데이트를 통해 순차 반영됩니다.'
+      },
+      en: {
+        appTitle: 'Matteson Intern Work Time Status',
+        appSubtitle: 'Matteson Plant Intern Work Time & Post-12:10am Shift Tracking',
+        updateCycleLabel: 'Update Cycle: Weekly (Daily Midnight)',
+        monthOptions: { '2026-11': 'Nov 2026', '2026-12': 'Dec 2026' },
+        kpiSummaryTitle: 'Work Summary (14 Interns)',
+        kpiLimitBadge: 'Max 42.0h',
+        kpiAvgLabel: 'Avg Hours',
+        kpiTotalPeople: '14 Total',
+        kpiPeriodNote: 'Directive : Max 42h/week & No work after 12:10am',
+        over42Title: 'Over 42h Workers',
+        midnightTitle: 'Post-12:10am Workers',
+        countSuffix: '',
+        timesSuffix: 'x',
+        noneOver42: 'None Over 42h (0)',
+        noneMidnight: 'No Post-12:10am Shifts (0)',
+        chartTitle: 'Total Work Hours & Post-12:10am Shifts — All 14 Interns',
+        chartSubtitle: 'Blue Bar: Total Work Hours · Black Dot: Post-12:10am Shifts · Hover for shift logs',
+        legendBar: 'Total Hours (h)',
+        legendDot: 'Post-12:10am Shifts',
+        legendMax: 'Max Limit 42h',
+        yLeftTitle: 'Total Work Hours (h)',
+        yRightTitle: 'Post-12:10am Shifts',
+        maxLineLabel: 'Max Limit 42h',
+        tooltipHours: 'Total Hours',
+        tooltipMidnight: 'Post-12:10am Shifts',
+        tooltipOver: (diff) => `+${diff.toFixed(1)}h Over 42h`,
+        tooltipNormal: 'Within 42h',
+        emptyOverlayTitle: 'December 2026 Schedule Pending',
+        emptyOverlaySub: 'Data updates automatically on the weekly midnight cycle.'
+      }
+    };
+
+    // =========================================================================
+    // 3. DROPDOWN & LANGUAGE HANDLERS
+    // =========================================================================
+    function populateDropdowns() {
+      const t = i18n[currentLang];
+      const monthSel = document.getElementById('monthSelect');
+      Array.from(monthSel.options).forEach(opt => {
+        opt.textContent = t.monthOptions[opt.value];
+      });
+      monthSel.value = selectedMonth;
+
+      const weekSel = document.getElementById('weekSelect');
+      const weeks = weekOptionsMap[selectedMonth] || [];
+      weekSel.innerHTML = weeks
+        .map(w => `<option value="${w.value}">${currentLang === 'ko' ? w.ko : w.en}</option>`)
+        .join('');
+
+      if (!weeks.some(w => w.value === selectedWeek)) {
+        selectedWeek = weeks[0].value;
+      }
+      weekSel.value = selectedWeek;
+    }
+
+    function onMonthChange() {
+      selectedMonth = document.getElementById('monthSelect').value;
+      selectedWeek = weekOptionsMap[selectedMonth][0].value;
+      populateDropdowns();
+      renderDashboard();
+    }
+
+    function onWeekChange() {
+      selectedWeek = document.getElementById('weekSelect').value;
+      renderDashboard();
+    }
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      const btnKo = document.getElementById('btnLangKo');
+      const btnEn = document.getElementById('btnLangEn');
+      if (lang === 'ko') {
+        btnKo.className = 'px-2.5 py-1 text-xs font-semibold rounded-md transition-all bg-white text-blue-600 shadow-2xs';
+        btnEn.className = 'px-2.5 py-1 text-xs font-semibold rounded-md transition-all text-slate-600 hover:text-slate-900';
+      } else {
+        btnEn.className = 'px-2.5 py-1 text-xs font-semibold rounded-md transition-all bg-white text-blue-600 shadow-2xs';
+        btnKo.className = 'px-2.5 py-1 text-xs font-semibold rounded-md transition-all text-slate-600 hover:text-slate-900';
+      }
+      populateDropdowns();
+      renderDashboard();
+    }
+
+    // =========================================================================
+    // 4. DATA PROCESSING
+    // =========================================================================
+    function getRecords() {
+      const mapped = internData.map(item => {
+        let hours = 0;
+        let midnight = 0;
+        let logs = [];
+
+        if (selectedWeek === 'nov-w1') {
+          hours = item.novW1.hours;
+          midnight = item.novW1.midnight;
+          logs = item.novW1.logs;
+        } else if (selectedWeek === 'nov-w2') {
+          hours = item.novW2.hours;
+          midnight = item.novW2.midnight;
+          logs = item.novW2.logs;
+        } else if (selectedWeek === 'dec-all' || selectedWeek === 'dec-w1') {
+          hours = item.decW1.hours;
+          midnight = item.decW1.midnight;
+          logs = item.decW1.logs;
+        } else {
+          // nov-all (Nov Cumulative)
+          hours = Number((item.novW1.hours + item.novW2.hours).toFixed(1));
+          midnight = item.novW1.midnight + item.novW2.midnight;
+          logs = [...item.novW1.logs, ...item.novW2.logs];
+        }
+
+        return {
+          ...item,
+          hours,
+          midnight,
+          logs,
+          isOver42: hours > 42,
+          hasMidnight: midnight > 0
+        };
+      });
+
+      return mapped.sort((a, b) => b.hours - a.hours);
+    }
+
+    // =========================================================================
+    // 5. RENDER SUMMARY, LISTS & COMBO CHART
+    // =========================================================================
+    function renderDashboard() {
+      const t = i18n[currentLang];
+      const records = getRecords();
+
+      // Update Header & Summary Labels
+      document.getElementById('appTitle').textContent = t.appTitle;
+      document.getElementById('appSubtitle').textContent = t.appSubtitle;
+      document.getElementById('updateCycleLabel').textContent = t.updateCycleLabel;
+
+      document.getElementById('kpiSummaryTitle').textContent = t.kpiSummaryTitle;
+      document.getElementById('kpiLimitBadge').textContent = t.kpiLimitBadge;
+      document.getElementById('kpiAvgLabel').textContent = t.kpiAvgLabel;
+      document.getElementById('kpiTotalPeople').textContent = t.kpiTotalPeople;
+      document.getElementById('kpiPeriodNote').textContent = t.kpiPeriodNote;
+
+      document.getElementById('over42Title').innerHTML = `<span>📌</span> <span>${t.over42Title}</span>`;
+      document.getElementById('midnightTitle').innerHTML = `<span>🌙</span> <span>${t.midnightTitle}</span>`;
+
+      document.getElementById('chartTitle').textContent = t.chartTitle;
+      document.getElementById('chartSubtitle').textContent = t.chartSubtitle;
+      document.getElementById('legendBar').textContent = t.legendBar;
+      document.getElementById('legendDot').textContent = t.legendDot;
+      document.getElementById('legendMax').textContent = t.legendMax;
+
+      // Empty overlay toggle for Dec 2026
+      const emptyOverlay = document.getElementById('emptyOverlay');
+      if (selectedMonth === '2026-12') {
+        document.getElementById('emptyOverlayTitle').textContent = t.emptyOverlayTitle;
+        document.getElementById('emptyOverlaySub').textContent = t.emptyOverlaySub;
+        emptyOverlay.classList.remove('hidden');
+      } else {
+        emptyOverlay.classList.add('hidden');
+      }
+
+      // Average Work Hours
+      const avgHours = records.reduce((sum, r) => sum + r.hours, 0) / records.length;
+      document.getElementById('kpiAvgValue').textContent = `${avgHours.toFixed(1)}h`;
+
+      // Card 2: Over 42h Workers Badges
+      const over42List = records.filter(r => r.isOver42);
+      document.getElementById('over42CountBadge').textContent =
+        currentLang === 'ko' ? `${over42List.length}${t.countSuffix}` : `${over42List.length}`;
+      const over42Container = document.getElementById('over42List');
+
+      if (over42List.length === 0) {
+        over42Container.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">✅ ${t.noneOver42}</span>`;
+      } else {
+        over42Container.innerHTML = over42List.map(r => {
+          const dispName = currentLang === 'ko' ? `${r.firstName} (${r.koName})` : r.firstName;
+          return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-red-200 text-[11px] font-semibold text-slate-800 shadow-2xs">
+            <span>${dispName}</span>
+            <span class="text-red-600 font-extrabold">${r.hours.toFixed(1)}h</span>
+          </span>`;
+        }).join('');
+      }
+
+      // Card 3: Post-12:10am Workers Badges
+      const midnightList = records
+        .filter(r => r.hasMidnight)
+        .sort((a, b) => b.midnight - a.midnight);
+      document.getElementById('midnightCountBadge').textContent =
+        currentLang === 'ko' ? `${midnightList.length}${t.countSuffix}` : `${midnightList.length}`;
+      const midnightContainer = document.getElementById('midnightList');
+
+      if (midnightList.length === 0) {
+        midnightContainer.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold">✅ ${t.noneMidnight}</span>`;
+      } else {
+        midnightContainer.innerHTML = midnightList.map(r => {
+          const dispName = currentLang === 'ko' ? `${r.firstName} (${r.koName})` : r.firstName;
+          return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[11px] font-medium text-slate-100">
+            <span>${dispName}</span>
+            <span class="text-amber-400 font-extrabold">${r.midnight}${t.timesSuffix}</span>
+          </span>`;
+        }).join('');
+      }
+
+      renderComboChart(records, t);
+    }
+
+    function renderComboChart(records, t) {
+      const ctx = document.getElementById('comboChart').getContext('2d');
+
+      // English First Name ONLY on X-axis
+      const labels = records.map(r => r.firstName);
+      const hoursData = records.map(r => r.hours);
+      const midnightData = records.map(r => r.midnight);
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      const maxHours = Math.max(...hoursData, 50);
+      const yMaxHours = Math.ceil((maxHours + 12) / 10) * 10;
+
+      chartInstance = new Chart(ctx, {
+        data: {
+          labels: labels,
+          datasets: [
+            // Dataset 1: Black Dots ONLY (No connecting lines) for Post-12:10am Count
+            {
+              type: 'line',
+              label: t.tooltipMidnight,
+              data: midnightData,
+              yAxisID: 'yMidnight',
+              showLine: false,
+              borderWidth: 0,
+              pointRadius: (ctx) => (ctx.raw > 0 ? 5.5 : 3.5),
+              pointHoverRadius: 7.5,
+              pointBackgroundColor: (ctx) => (ctx.raw > 0 ? '#111827' : '#94a3b8'),
+              pointBorderColor: '#ffffff',
+              pointBorderWidth: 1.5,
+              order: 1,
+              datalabels: {
+                display: true,
+                align: 'top',
+                anchor: 'end',
+                offset: 3,
+                color: (ctx) => (ctx.dataset.data[ctx.dataIndex] > 0 ? '#111827' : '#94a3b8'),
+                backgroundColor: (ctx) =>
+                  ctx.dataset.data[ctx.dataIndex] > 0 ? 'rgba(255, 255, 255, 0.92)' : 'transparent',
+                borderRadius: 4,
+                padding: { top: 1, bottom: 1, left: 4, right: 4 },
+                font: (ctx) => ({
+                  size: ctx.dataset.data[ctx.dataIndex] > 0 ? 10.5 : 9.5,
+                  weight: ctx.dataset.data[ctx.dataIndex] > 0 ? '800' : '600'
+                }),
+                formatter: (val) => (val > 0 ? `${val}${t.timesSuffix}` : '0')
+              }
+            },
+            // Dataset 2: Uniform Royal Blue Bars for Total Work Hours
+            {
+              type: 'bar',
+              label: t.tooltipHours,
+              data: hoursData,
+              yAxisID: 'yHours',
+              backgroundColor: '#2563eb',
+              hoverBackgroundColor: '#1d4ed8',
+              borderRadius: 5,
+              barPercentage: 0.56,
+              categoryPercentage: 0.84,
+              order: 2,
+              datalabels: {
+                display: true,
+                anchor: 'end',
+                align: 'end',
+                offset: 2,
+                color: (ctx) => {
+                  const rec = records[ctx.dataIndex];
+                  return rec.isOver42 ? '#dc2626' : '#1e3a8a';
+                },
+                font: { size: 10.5, weight: '700' },
+                formatter: (val) => `${val.toFixed(1)}h`
+              }
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          layout: {
+            padding: { top: 20, right: 8, left: 4, bottom: 0 }
+          },
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+              padding: 11,
+              cornerRadius: 8,
+              titleFont: { size: 12, weight: 'bold' },
+              bodyFont: { size: 11.5 },
+              callbacks: {
+                title: (items) => {
+                  const rec = records[items[0].dataIndex];
+                  return `${rec.name} (${rec.koName}) — ${rec.dept}`;
+                },
+                label: (context) => {
+                  const rec = records[context.dataIndex];
+                  if (context.dataset.type === 'bar') {
+                    const status = rec.isOver42
+                      ? t.tooltipOver(rec.hours - 42)
+                      : t.tooltipNormal;
+                    return `${t.tooltipHours}: ${rec.hours.toFixed(1)}h (${status})`;
+                  } else {
+                    return `${t.tooltipMidnight}: ${rec.midnight}${t.timesSuffix}`;
+                  }
+                },
+                afterBody: (items) => {
+                  const rec = records[items[0].dataIndex];
+                  if (rec.logs.length > 0) {
+                    return ['', `🌙 ${rec.logs.join(' | ')}`];
+                  }
+                  return [];
+                }
+              }
+            },
+            annotation: {
+              annotations: {
+                max42Line: {
+                  type: 'line',
+                  yMin: 42,
+                  yMax: 42,
+                  yScaleID: 'yHours',
+                  borderColor: '#dc2626',
+                  borderWidth: 2,
+                  borderDash: [6, 4],
+                  label: {
+                    display: true,
+                    content: t.maxLineLabel,
+                    position: 'end',
+                    backgroundColor: '#dc2626',
+                    color: '#ffffff',
+                    font: { size: 10, weight: 'bold' },
+                    padding: { x: 6, y: 3 },
+                    borderRadius: 4
+                  }
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                autoSkip: false,
+                maxRotation: 0,
+                minRotation: 0,
+                font: { size: 10.5, weight: '600' },
+                color: '#1e293b'
+              }
+            },
+            yHours: {
+              type: 'linear',
+              position: 'left',
+              beginAtZero: true,
+              max: yMaxHours,
+              title: {
+                display: true,
+                text: t.yLeftTitle,
+                color: '#2563eb',
+                font: { size: 11, weight: '700' }
+              },
+              grid: {
+                color: '#f1f5f9'
+              },
+              ticks: {
+                callback: (v) => `${v}h`,
+                font: { size: 10.5 },
+                color: '#64748b'
+              }
+            },
+            yMidnight: {
+              type: 'linear',
+              position: 'right',
+              beginAtZero: true,
+              max: 8,
+              title: {
+                display: true,
+                text: t.yRightTitle,
+                color: '#111827',
+                font: { size: 11, weight: '700' }
+              },
+              grid: {
+                drawOnChartArea: false
+              },
+              ticks: {
+                stepSize: 1,
+                font: { size: 10.5, weight: '600' },
+                color: '#111827'
+              }
+            }
+          }
+        }
+      });
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      populateDropdowns();
+      renderDashboard();
+    });
+  </script>
+</body>
+</html>
