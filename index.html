@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Matteson Intern Work Time Monitoring</title>
+  <title>Matteson Intern Work Time Status</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js, Annotation Plugin & DataLabels Plugin -->
@@ -27,7 +27,6 @@
     .live-dot {
       animation: pulse-dot 1.8s infinite ease-in-out;
     }
-    /* Custom subtle scrollbar inside warning pill containers if many names */
     .thin-scroll::-webkit-scrollbar {
       width: 4px;
       height: 4px;
@@ -52,10 +51,10 @@
         <div class="flex flex-wrap items-center gap-2">
           <div>
             <h1 id="appTitle" class="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
-              Matteson 인턴 근무시간 모니터링
+              Matteson 인턴 근무시간 현황
             </h1>
             <p id="appSubtitle" class="text-[11px] text-slate-500 leading-tight">
-              Matteson Plant Intern Work Time &amp; Midnight Shift Tracking
+              Matteson Plant Intern Work Time &amp; Post-12:10am Shift Tracking
             </p>
           </div>
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 ml-1">
@@ -63,8 +62,8 @@
             <span>Live on</span>
           </span>
           <span id="updateCycleLabel" class="hidden xl:inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-        <div id="kpiPeriodNote" class="text-[11px] font-semibold text-slate-700 truncate border-t border-slate-100 pt-1">
-          지시사항 : 주당 42시간 및 자정근무 불가
+            업데이트 주기: 주1일 (매일 자정)
+          </span>
         </div>
       </div>
 
@@ -95,7 +94,7 @@
             한글
           </button>
           <button id="btnLangEn" onclick="setLanguage('en')" class="px-2.5 py-1 text-xs font-semibold rounded-md transition-all text-slate-600 hover:text-slate-900">
-            EN
+            English
           </button>
         </div>
       </div>
@@ -105,10 +104,10 @@
   <!-- Main Single-Screen Dashboard Workspace -->
   <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-3 flex flex-col gap-3 min-h-0">
 
-    <!-- Top Summary & Warning Cards (3 Compact Cards in a Row) -->
+    <!-- Top Summary Cards (3 Compact Cards in a Row) -->
     <section class="grid grid-cols-1 md:grid-cols-12 gap-3 shrink-0">
       
-      <!-- Card 1: Period Summary & 42h Limit Standard (3 cols) -->
+      <!-- Card 1: Directive & Average (3 cols) -->
       <div class="md:col-span-3 bg-white rounded-xl border border-slate-200 px-4 py-2.5 flex flex-col justify-between shadow-2xs">
         <div class="flex items-center justify-between">
           <span id="kpiSummaryTitle" class="text-[11px] font-bold text-slate-500 uppercase tracking-wide">근무 요약 (14명)</span>
@@ -127,33 +126,33 @@
             <span class="block text-[10px] text-slate-400">RM 6 · Cell 3 · FG 5</span>
           </div>
         </div>
-        <div id="kpiPeriodNote" class="text-[10px] text-slate-500 truncate border-t border-slate-100 pt-1">
-          지시사항: 자정 이후 근무 금지 및 주 42시간 상한 관리
+        <div id="kpiPeriodNote" class="text-[11px] font-semibold text-slate-700 truncate border-t border-slate-100 pt-1">
+          지시사항 : 주당 42시간 및 자정(12:10am) 이후 근무 불가
         </div>
       </div>
 
-      <!-- Card 2: Over 42h Warning List (4.5 cols -> 4 cols) -->
+      <!-- Card 2: Over 42h Workers (4 cols) -->
       <div class="md:col-span-4 bg-red-50/60 rounded-xl border border-red-200 px-3.5 py-2.5 flex flex-col justify-between shadow-2xs">
         <div class="flex items-center justify-between mb-1.5">
-          <span id="warn42Title" class="text-xs font-bold text-red-700 flex items-center gap-1.5">
-            <span>⚠️</span> <span>42시간 초과자 워닝</span>
+          <span id="over42Title" class="text-xs font-bold text-red-700 flex items-center gap-1.5">
+            <span>📌</span> <span>42시간 초과 근무자</span>
           </span>
-          <span id="warn42CountBadge" class="px-2 py-0.5 rounded-full bg-red-600 text-white text-[11px] font-bold">11명</span>
+          <span id="over42CountBadge" class="px-2 py-0.5 rounded-full bg-red-600 text-white text-[11px] font-bold">11명</span>
         </div>
-        <div id="warn42List" class="flex flex-wrap gap-1 max-h-[58px] overflow-y-auto thin-scroll pr-0.5">
+        <div id="over42List" class="flex flex-wrap gap-1 max-h-[58px] overflow-y-auto thin-scroll pr-0.5">
           <!-- Populated dynamically -->
         </div>
       </div>
 
-      <!-- Card 3: Post-Midnight Warning List (5 cols) -->
+      <!-- Card 3: Post-12:10am Workers (5 cols) -->
       <div class="md:col-span-5 bg-slate-900 text-white rounded-xl border border-slate-800 px-3.5 py-2.5 flex flex-col justify-between shadow-2xs">
         <div class="flex items-center justify-between mb-1.5">
-          <span id="warnMidnightTitle" class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
-            <span>🌙</span> <span>자정 넘김 근무자 워닝 (12:00 AM 이후)</span>
+          <span id="midnightTitle" class="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+            <span>🌙</span> <span>12:10am 이후 근무자</span>
           </span>
-          <span id="warnMidnightCountBadge" class="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[11px] font-extrabold">9명</span>
+          <span id="midnightCountBadge" class="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[11px] font-extrabold">5명</span>
         </div>
-        <div id="warnMidnightList" class="flex flex-wrap gap-1 max-h-[58px] overflow-y-auto thin-scroll pr-0.5">
+        <div id="midnightList" class="flex flex-wrap gap-1 max-h-[58px] overflow-y-auto thin-scroll pr-0.5">
           <!-- Populated dynamically -->
         </div>
       </div>
@@ -161,16 +160,16 @@
     </section>
 
     <!-- Main Combo Chart Card (Fills Remaining Screen Height) -->
-    <section class="flex-1 bg-white rounded-xl border border-slate-200 p-4 flex flex-col min-h-[380px] shadow-2xs">
+    <section class="flex-1 bg-white rounded-xl border border-slate-200 p-4 flex flex-col min-h-[380px] shadow-2xs relative">
       
       <!-- Chart Header & Simplified Legend -->
       <div class="flex flex-wrap items-center justify-between gap-2 mb-2 shrink-0">
         <div>
           <h2 id="chartTitle" class="text-sm sm:text-base font-bold text-slate-900">
-            인턴별 총 근무시간 및 자정 초과 횟수 현황 — 전체 14명
+            인턴별 총 근무시간 및 12:10am 이후 근무 횟수 현황 — 전체 14명
           </h2>
           <p id="chartSubtitle" class="text-[11px] text-slate-500">
-            파란색 막대: 총 근무시간 (42h 초과 시 ⚠️ 표시) · 검정색 점: 자정 이후 근무 횟수 · 마우스 오버 시 상세 시간 확인
+            파란색 막대: 총 근무시간 · 검정색 점: 12:10am 이후 근무 횟수 · 마우스 오버 시 상세 시간 확인
           </p>
         </div>
 
@@ -186,7 +185,7 @@
           </div>
           <div class="flex items-center gap-1.5">
             <span class="w-3 h-3 rounded-full bg-slate-900 border-2 border-white shadow-2xs inline-block"></span>
-            <span id="legendDot" class="text-slate-900 font-semibold">자정 초과 횟수</span>
+            <span id="legendDot" class="text-slate-900 font-semibold">12:10am 이후 근무 횟수</span>
           </div>
         </div>
       </div>
@@ -194,6 +193,12 @@
       <!-- Canvas Wrapper -->
       <div class="relative flex-1 w-full min-h-0">
         <canvas id="comboChart"></canvas>
+        <!-- Empty / Scheduled Overlay for Dec 2026 -->
+        <div id="emptyOverlay" class="hidden absolute inset-0 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 pointer-events-none">
+          <span class="text-2xl mb-1">📅</span>
+          <p id="emptyOverlayTitle" class="text-sm font-bold text-slate-700">2026년 12월 근무 데이터 집계 예정</p>
+          <p id="emptyOverlaySub" class="text-xs text-slate-500 mt-0.5">매주 자정 자동 업데이트를 통해 순차 반영됩니다.</p>
+        </div>
       </div>
 
     </section>
@@ -205,7 +210,7 @@
     Chart.register(ChartDataLabels);
 
     // =========================================================================
-    // 1. EXACT SPREADSHEET DATASET (All 14 Interns)
+    // 1. EXACT SPREADSHEET DATASET (Recalculated with strictly > 12:10 AM rule)
     // =========================================================================
     const internData = [
       {
@@ -213,27 +218,18 @@
         name: 'Tae Hun Kim',
         koName: '김태훈',
         dept: 'FG',
-        novW1: { hours: 66.5, midnight: 5, logs: ['11/16 (2:43pm~1:00am)', '11/19 (11:55pm~12:15am)', '11/20 (5:28pm~12:08am)', '11/21 (5:32pm~12:01am)', '11/22 (11:31am~12:06am)'] },
-        novW2: { hours: 6.7, midnight: 1, logs: ['11/23 (5:31pm~12:10am)'] },
-        decW1: { hours: 38.5, midnight: 0, logs: [] }
+        novW1: { hours: 66.5, midnight: 1, logs: ['11/16 (2:43pm~1:00am)'] },
+        novW2: { hours: 6.7, midnight: 0, logs: [] }, // Ended 12:10am exact -> 0
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
       },
       {
         firstName: 'Minseo',
         name: 'Minseo Kim',
         koName: '김민서',
         dept: 'RM',
-        novW1: { hours: 63.5, midnight: 4, logs: ['11/16 (2:24pm~12:01am)', '11/18 (2:20pm~12:09am)', '11/19 (2:34pm~12:02am)', '11/21 (2:20pm~12:06am)'] },
-        novW2: { hours: 9.5, midnight: 1, logs: ['11/23 (2:21pm~12:05am)'] },
-        decW1: { hours: 40.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Yoonseo',
-        name: 'Yoonseo Cha',
-        koName: '차윤서',
-        dept: 'RM',
-        novW1: { hours: 57.0, midnight: 1, logs: ['11/19 (2:40pm~12:04am)'] },
-        novW2: { hours: 0.0, midnight: 0, logs: [] },
-        decW1: { hours: 39.0, midnight: 0, logs: [] }
+        novW1: { hours: 63.5, midnight: 0, logs: [] },
+        novW2: { hours: 9.5, midnight: 0, logs: [] }, // Ended 12:05am -> 0
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
       },
       {
         firstName: 'Junho',
@@ -241,17 +237,54 @@
         koName: '배준호',
         dept: 'Cell',
         novW1: { hours: 54.3, midnight: 0, logs: [] },
-        novW2: { hours: 11.5, midnight: 1, logs: ['11/23 (11:55am~12:05am)'] },
-        decW1: { hours: 40.5, midnight: 0, logs: [] }
+        novW2: { hours: 11.5, midnight: 0, logs: [] }, // Ended 12:05am -> 0
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
       },
       {
         firstName: 'Jihye',
         name: 'Jihye Lim',
         koName: '임지혜',
         dept: 'Cell',
-        novW1: { hours: 53.3, midnight: 4, logs: ['11/18 (10:38pm~1:49pm)', '11/19 (10:54pm~8:54am)', '11/20 (7:45pm~9:17am)', '11/21 (8:07pm~8:50am)'] },
-        novW2: { hours: 12.0, midnight: 0, logs: [] },
-        decW1: { hours: 36.0, midnight: 0, logs: [] }
+        novW1: {
+          hours: 53.3,
+          midnight: 5,
+          logs: [
+            '11/18 (10:38pm~1:49pm)',
+            '11/19 (10:54pm~8:54am)',
+            '11/20 (7:45pm~9:17am)',
+            '11/21 (8:07pm~8:50am)',
+            '11/22 (8:05pm~12:00pm)'
+          ]
+        },
+        novW2: { hours: 12.0, midnight: 1, logs: ['11/23 (12:00am~12:00pm)'] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Yoonseo',
+        name: 'Yoonseo Cha',
+        koName: '차윤서',
+        dept: 'RM',
+        novW1: { hours: 57.0, midnight: 0, logs: [] },
+        novW2: { hours: 0.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Seunghyun',
+        name: 'Seunghyun Lee',
+        koName: '이승현',
+        dept: 'RM',
+        novW1: { hours: 46.0, midnight: 0, logs: [] },
+        novW2: { hours: 11.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Yuha',
+        name: 'Yuha Kim',
+        koName: '김유하',
+        dept: 'RM',
+        novW1: { hours: 45.1, midnight: 0, logs: [] },
+        novW2: { hours: 8.8, midnight: 0, logs: [] }, // Ended 12:05am -> 0
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
       },
       {
         firstName: 'Jisung',
@@ -260,43 +293,7 @@
         dept: 'FG',
         novW1: { hours: 52.2, midnight: 0, logs: [] },
         novW2: { hours: 0.0, midnight: 0, logs: [] },
-        decW1: { hours: 38.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Sieun',
-        name: 'Sieun Kim',
-        koName: '김시은',
-        dept: 'RM',
-        novW1: { hours: 50.1, midnight: 1, logs: ['11/20 (2:30pm~12:03am)'] },
-        novW2: { hours: 0.0, midnight: 0, logs: [] },
-        decW1: { hours: 37.5, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Suyeon',
-        name: 'Suyeon Park',
-        koName: '박수연',
-        dept: 'Cell',
-        novW1: { hours: 49.1, midnight: 4, logs: ['11/16 (3:24pm~12:35am)', '11/17 (4:15pm~12:55am)', '11/18 (3:30pm~12:25am)', '11/19 (12:01pm~12:27am)'] },
-        novW2: { hours: 0.0, midnight: 0, logs: [] },
-        decW1: { hours: 40.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Seunghyun',
-        name: 'Seunghyun Lee',
-        koName: '이승현',
-        dept: 'RM',
-        novW1: { hours: 46.0, midnight: 1, logs: ['11/18 (2:34pm~12:02am)'] },
-        novW2: { hours: 11.0, midnight: 0, logs: [] },
-        decW1: { hours: 39.5, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Yuha',
-        name: 'Yuha Kim',
-        koName: '김유하',
-        dept: 'RM',
-        novW1: { hours: 45.1, midnight: 0, logs: [] },
-        novW2: { hours: 8.8, midnight: 1, logs: ['11/23 (2:47pm~12:05am)'] },
-        decW1: { hours: 38.0, midnight: 0, logs: [] }
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
       },
       {
         firstName: 'Sangyeon',
@@ -305,7 +302,34 @@
         dept: 'FG',
         novW1: { hours: 41.1, midnight: 1, logs: ['11/17 (5:02pm~12:16am)'] },
         novW2: { hours: 11.0, midnight: 0, logs: [] },
-        decW1: { hours: 39.0, midnight: 0, logs: [] }
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Sieun',
+        name: 'Sieun Kim',
+        koName: '김시은',
+        dept: 'RM',
+        novW1: { hours: 50.1, midnight: 0, logs: [] },
+        novW2: { hours: 0.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
+      },
+      {
+        firstName: 'Suyeon',
+        name: 'Suyeon Park',
+        koName: '박수연',
+        dept: 'Cell',
+        novW1: {
+          hours: 49.1,
+          midnight: 4,
+          logs: [
+            '11/16 (3:24pm~12:35am)',
+            '11/17 (4:15pm~12:55am)',
+            '11/18 (3:30pm~12:25am)',
+            '11/19 (12:01pm~12:27am)'
+          ]
+        },
+        novW2: { hours: 0.0, midnight: 0, logs: [] },
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
       },
       {
         firstName: 'Subin',
@@ -314,16 +338,16 @@
         dept: 'FG',
         novW1: { hours: 31.7, midnight: 0, logs: [] },
         novW2: { hours: 6.8, midnight: 0, logs: [] },
-        decW1: { hours: 36.5, midnight: 0, logs: [] }
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
       },
       {
         firstName: 'Gaeun',
         name: 'Gaeun Han',
         koName: '한가은',
         dept: 'RM',
-        novW1: { hours: 18.8, midnight: 2, logs: ['11/20 (2:42pm~12:05am)', '11/22 (2:09pm~12:32am)'] },
+        novW1: { hours: 18.8, midnight: 1, logs: ['11/22 (2:09pm~12:32am)'] },
         novW2: { hours: 11.6, midnight: 0, logs: [] },
-        decW1: { hours: 35.0, midnight: 0, logs: [] }
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
       },
       {
         firstName: 'Garam',
@@ -332,7 +356,7 @@
         dept: 'FG',
         novW1: { hours: 12.8, midnight: 0, logs: [] },
         novW2: { hours: 9.7, midnight: 0, logs: [] },
-        decW1: { hours: 34.0, midnight: 0, logs: [] }
+        decW1: { hours: 0.0, midnight: 0, logs: [] }
       }
     ];
 
@@ -346,74 +370,78 @@
 
     const weekOptionsMap = {
       '2026-11': [
-        { value: 'nov-all', ko: '11월 전체 누적 (Nov Cumulative)', en: 'Nov Cumulative (11/16 ~ 11/29)' },
+        { value: 'nov-all', ko: '11월 전체 누적', en: 'Nov Cumulative' },
         { value: 'nov-w1',  ko: '11/16 ~ 11/22 (1주차)', en: '11/16 ~ 11/22 (Week 1)' },
         { value: 'nov-w2',  ko: '11/23 ~ 11/29 (2주차)', en: '11/23 ~ 11/29 (Week 2)' }
       ],
       '2026-12': [
-        { value: 'dec-all', ko: '12월 전체 누적 (Dec Cumulative)', en: 'Dec Cumulative (11/30 ~ 12/06)' },
-        { value: 'dec-w1',  ko: '11/30 ~ 12/06 (1주차 계획)', en: '11/30 ~ 12/06 (Week 1 Plan)' }
+        { value: 'dec-all', ko: '12월 전체 누적', en: 'Dec Cumulative' },
+        { value: 'dec-w1',  ko: '11/30 ~ 12/06 (1주차 예정)', en: '11/30 ~ 12/06 (Week 1 Scheduled)' }
       ]
     };
 
     const i18n = {
       ko: {
-        appTitle: '인턴 근무시간 모니터링',
-        appSubtitle: 'Matteson Plant Intern Work Time & Midnight Shift Tracking',
+        appTitle: 'Matteson 인턴 근무시간 현황',
+        appSubtitle: 'Matteson Plant Intern Work Time & Post-12:10am Shift Tracking',
         updateCycleLabel: '업데이트 주기: 주1일 (매일 자정)',
-        monthOptions: { '2026-11': '2026년 11월 (Nov 2026)', '2026-12': '2026년 12월 (Dec 2026)' },
+        monthOptions: { '2026-11': '2026년 11월', '2026-12': '2026년 12월' },
         kpiSummaryTitle: '근무 요약 (14명)',
         kpiLimitBadge: '42.0h 기준',
         kpiAvgLabel: '평균 근무',
         kpiTotalPeople: '총 14명',
-        kpiPeriodNote: '지시사항 : 주당 42시간 및 자정근무 불가',
-        warn42Title: '42시간 초과자 워닝',
-        warnMidnightTitle: '자정 넘김 근무자 워닝 (12:00 AM 이후)',
+        kpiPeriodNote: '지시사항 : 주당 42시간 및 자정(12:10am) 이후 근무 불가',
+        over42Title: '42시간 초과 근무자',
+        midnightTitle: '12:10am 이후 근무자',
         countSuffix: '명',
         timesSuffix: '회',
-        noneOver42: '초과자 없음 (0명)',
-        noneMidnight: '자정 초과자 없음 (0명)',
-        chartTitle: '인턴별 총 근무시간 및 자정 초과 횟수 현황 — 전체 14명',
-        chartSubtitle: '파란색 막대: 총 근무시간 (42h 초과 시 ⚠️ 표시) · 검정색 점: 자정 이후 근무 횟수 · 마우스 오버 시 상세 시간 확인',
+        noneOver42: '초과 근무자 없음 (0명)',
+        noneMidnight: '12:10am 이후 근무자 없음 (0명)',
+        chartTitle: '인턴별 총 근무시간 및 12:10am 이후 근무 횟수 현황 — 전체 14명',
+        chartSubtitle: '파란색 막대: 총 근무시간 · 검정색 점: 12:10am 이후 근무 횟수 · 마우스 오버 시 상세 시간 확인',
         legendBar: '총 근무시간 (h)',
-        legendDot: '자정 초과 횟수',
+        legendDot: '12:10am 이후 근무 횟수',
         legendMax: '최대 기준선 42h',
         yLeftTitle: '총 근무시간 (Hours)',
-        yRightTitle: '자정 초과 횟수 (회)',
-        maxLineLabel: 'Max 42h',
+        yRightTitle: '12:10am 이후 근무 횟수 (회)',
+        maxLineLabel: '최대 기준선 42h',
         tooltipHours: '총 근무시간',
-        tooltipMidnight: '자정 초과 횟수',
-        tooltipOver: (diff) => `⚠️ +${diff.toFixed(1)}h 초과`,
-        tooltipNormal: '정상 범위'
+        tooltipMidnight: '12:10am 이후 근무 횟수',
+        tooltipOver: (diff) => `+${diff.toFixed(1)}h 초과`,
+        tooltipNormal: '42h 이내',
+        emptyOverlayTitle: '2026년 12월 근무 데이터 집계 예정',
+        emptyOverlaySub: '주 1일(매일 자정) 업데이트를 통해 순차 반영됩니다.'
       },
       en: {
-        appTitle: 'Intern Work Time Monitor',
-        appSubtitle: 'Matteson Plant Intern Work Time & Midnight Shift Tracking',
-        updateCycleLabel: 'Update: Weekly (Midnight)',
-        monthOptions: { '2026-11': 'Nov 2026 (2026년 11월)', '2026-12': 'Dec 2026 (2026년 12월)' },
+        appTitle: 'Matteson Intern Work Time Status',
+        appSubtitle: 'Matteson Plant Intern Work Time & Post-12:10am Shift Tracking',
+        updateCycleLabel: 'Update Cycle: Weekly (Daily Midnight)',
+        monthOptions: { '2026-11': 'Nov 2026', '2026-12': 'Dec 2026' },
         kpiSummaryTitle: 'Work Summary (14 Interns)',
         kpiLimitBadge: 'Max 42.0h',
         kpiAvgLabel: 'Avg Hours',
         kpiTotalPeople: '14 Total',
-        kpiPeriodNote: 'Directive : Max 42h/week & No post-midnight shifts',
-        warn42Title: 'Over 42h Warning',
-        warnMidnightTitle: 'Post-Midnight Warning (>12:00 AM)',
+        kpiPeriodNote: 'Directive : Max 42h/week & No work after 12:10am',
+        over42Title: 'Over 42h Workers',
+        midnightTitle: 'Post-12:10am Workers',
         countSuffix: '',
         timesSuffix: 'x',
-        noneOver42: 'No Overtime (0)',
-        noneMidnight: 'None (0)',
-        chartTitle: 'Total Work Hours & Post-Midnight Count — All 14 Interns',
-        chartSubtitle: 'Blue Bar: Total Work Hours (⚠️ if >42h) · Black Dot: Post-Midnight Count · Hover for shift logs',
+        noneOver42: 'None Over 42h (0)',
+        noneMidnight: 'No Post-12:10am Shifts (0)',
+        chartTitle: 'Total Work Hours & Post-12:10am Shifts — All 14 Interns',
+        chartSubtitle: 'Blue Bar: Total Work Hours · Black Dot: Post-12:10am Shifts · Hover for shift logs',
         legendBar: 'Total Hours (h)',
-        legendDot: 'Post-Midnight Count',
+        legendDot: 'Post-12:10am Shifts',
         legendMax: 'Max Limit 42h',
         yLeftTitle: 'Total Work Hours (h)',
-        yRightTitle: 'Post-Midnight Count',
-        maxLineLabel: 'Max 42h',
+        yRightTitle: 'Post-12:10am Shifts',
+        maxLineLabel: 'Max Limit 42h',
         tooltipHours: 'Total Hours',
-        tooltipMidnight: 'Post-Midnight Count',
-        tooltipOver: (diff) => `⚠️ +${diff.toFixed(1)}h Over`,
-        tooltipNormal: 'Within Limit'
+        tooltipMidnight: 'Post-12:10am Shifts',
+        tooltipOver: (diff) => `+${diff.toFixed(1)}h Over 42h`,
+        tooltipNormal: 'Within 42h',
+        emptyOverlayTitle: 'December 2026 Schedule Pending',
+        emptyOverlaySub: 'Data updates automatically on the weekly midnight cycle.'
       }
     };
 
@@ -505,12 +533,11 @@
         };
       });
 
-      // Sort descending by hours so bars read cleanly left-to-right
       return mapped.sort((a, b) => b.hours - a.hours);
     }
 
     // =========================================================================
-    // 5. RENDER SUMMARY, WARNINGS & COMBO CHART
+    // 5. RENDER SUMMARY, LISTS & COMBO CHART
     // =========================================================================
     function renderDashboard() {
       const t = i18n[currentLang];
@@ -527,8 +554,8 @@
       document.getElementById('kpiTotalPeople').textContent = t.kpiTotalPeople;
       document.getElementById('kpiPeriodNote').textContent = t.kpiPeriodNote;
 
-      document.getElementById('warn42Title').innerHTML = `<span>⚠️</span> <span>${t.warn42Title}</span>`;
-      document.getElementById('warnMidnightTitle').innerHTML = `<span>🌙</span> <span>${t.warnMidnightTitle}</span>`;
+      document.getElementById('over42Title').innerHTML = `<span>📌</span> <span>${t.over42Title}</span>`;
+      document.getElementById('midnightTitle').innerHTML = `<span>🌙</span> <span>${t.midnightTitle}</span>`;
 
       document.getElementById('chartTitle').textContent = t.chartTitle;
       document.getElementById('chartSubtitle').textContent = t.chartSubtitle;
@@ -536,21 +563,31 @@
       document.getElementById('legendDot').textContent = t.legendDot;
       document.getElementById('legendMax').textContent = t.legendMax;
 
+      // Empty overlay toggle for Dec 2026
+      const emptyOverlay = document.getElementById('emptyOverlay');
+      if (selectedMonth === '2026-12') {
+        document.getElementById('emptyOverlayTitle').textContent = t.emptyOverlayTitle;
+        document.getElementById('emptyOverlaySub').textContent = t.emptyOverlaySub;
+        emptyOverlay.classList.remove('hidden');
+      } else {
+        emptyOverlay.classList.add('hidden');
+      }
+
       // Average Work Hours
       const avgHours = records.reduce((sum, r) => sum + r.hours, 0) / records.length;
       document.getElementById('kpiAvgValue').textContent = `${avgHours.toFixed(1)}h`;
 
-      // Card 2: Over 42h Warning Badges
+      // Card 2: Over 42h Workers Badges
       const over42List = records.filter(r => r.isOver42);
-      document.getElementById('warn42CountBadge').textContent =
+      document.getElementById('over42CountBadge').textContent =
         currentLang === 'ko' ? `${over42List.length}${t.countSuffix}` : `${over42List.length}`;
-      const warn42Container = document.getElementById('warn42List');
+      const over42Container = document.getElementById('over42List');
 
       if (over42List.length === 0) {
-        warn42Container.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">✅ ${t.noneOver42}</span>`;
+        over42Container.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold">✅ ${t.noneOver42}</span>`;
       } else {
-        warn42Container.innerHTML = over42List.map(r => {
-          const dispName = currentLang === 'ko' ? `${r.name} (${r.koName})` : r.name;
+        over42Container.innerHTML = over42List.map(r => {
+          const dispName = currentLang === 'ko' ? `${r.firstName} (${r.koName})` : r.firstName;
           return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-red-200 text-[11px] font-semibold text-slate-800 shadow-2xs">
             <span>${dispName}</span>
             <span class="text-red-600 font-extrabold">${r.hours.toFixed(1)}h</span>
@@ -558,19 +595,19 @@
         }).join('');
       }
 
-      // Card 3: Post-Midnight Warning Badges
+      // Card 3: Post-12:10am Workers Badges
       const midnightList = records
         .filter(r => r.hasMidnight)
         .sort((a, b) => b.midnight - a.midnight);
-      document.getElementById('warnMidnightCountBadge').textContent =
+      document.getElementById('midnightCountBadge').textContent =
         currentLang === 'ko' ? `${midnightList.length}${t.countSuffix}` : `${midnightList.length}`;
-      const warnMidnightContainer = document.getElementById('warnMidnightList');
+      const midnightContainer = document.getElementById('midnightList');
 
       if (midnightList.length === 0) {
-        warnMidnightContainer.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold">✅ ${t.noneMidnight}</span>`;
+        midnightContainer.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700 text-slate-300 text-xs font-semibold">✅ ${t.noneMidnight}</span>`;
       } else {
-        warnMidnightContainer.innerHTML = midnightList.map(r => {
-          const dispName = currentLang === 'ko' ? `${r.name} (${r.koName})` : r.name;
+        midnightContainer.innerHTML = midnightList.map(r => {
+          const dispName = currentLang === 'ko' ? `${r.firstName} (${r.koName})` : r.firstName;
           return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-[11px] font-medium text-slate-100">
             <span>${dispName}</span>
             <span class="text-amber-400 font-extrabold">${r.midnight}${t.timesSuffix}</span>
@@ -584,9 +621,8 @@
     function renderComboChart(records, t) {
       const ctx = document.getElementById('comboChart').getContext('2d');
 
-      // Labels for all 14 interns (English First Name ONLY so there is generous spacing)
+      // English First Name ONLY on X-axis
       const labels = records.map(r => r.firstName);
-
       const hoursData = records.map(r => r.hours);
       const midnightData = records.map(r => r.midnight);
 
@@ -601,13 +637,13 @@
         data: {
           labels: labels,
           datasets: [
-            // Dataset 1: Black Dots ONLY (No connecting lines!) for Post-Midnight Count
+            // Dataset 1: Black Dots ONLY (No connecting lines) for Post-12:10am Count
             {
               type: 'line',
               label: t.tooltipMidnight,
               data: midnightData,
               yAxisID: 'yMidnight',
-              showLine: false,             // Strictly NO connecting lines between dots
+              showLine: false,
               borderWidth: 0,
               pointRadius: (ctx) => (ctx.raw > 0 ? 5.5 : 3.5),
               pointHoverRadius: 7.5,
@@ -622,7 +658,7 @@
                 offset: 3,
                 color: (ctx) => (ctx.dataset.data[ctx.dataIndex] > 0 ? '#111827' : '#94a3b8'),
                 backgroundColor: (ctx) =>
-                  ctx.dataset.data[ctx.dataIndex] > 0 ? 'rgba(255, 255, 255, 0.9)' : 'transparent',
+                  ctx.dataset.data[ctx.dataIndex] > 0 ? 'rgba(255, 255, 255, 0.92)' : 'transparent',
                 borderRadius: 4,
                 padding: { top: 1, bottom: 1, left: 4, right: 4 },
                 font: (ctx) => ({
@@ -638,7 +674,7 @@
               label: t.tooltipHours,
               data: hoursData,
               yAxisID: 'yHours',
-              backgroundColor: '#2563eb',  // Uniform solid blue for ALL 14 interns
+              backgroundColor: '#2563eb',
               hoverBackgroundColor: '#1d4ed8',
               borderRadius: 5,
               barPercentage: 0.56,
@@ -654,10 +690,7 @@
                   return rec.isOver42 ? '#dc2626' : '#1e3a8a';
                 },
                 font: { size: 10.5, weight: '700' },
-                formatter: (val, ctx) => {
-                  const rec = records[ctx.dataIndex];
-                  return rec.isOver42 ? `⚠️${val.toFixed(1)}h` : `${val.toFixed(1)}h`;
-                }
+                formatter: (val) => `${val.toFixed(1)}h`
               }
             }
           ]
