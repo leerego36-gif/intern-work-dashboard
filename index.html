@@ -60,10 +60,16 @@
           <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 ml-1">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot"></span>
             <span>Live on</span>
+            <span id="syncSourceTag" class="text-[10px] font-medium text-emerald-600/90">(CSV)</span>
           </span>
           <span id="updateCycleLabel" class="hidden xl:inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
             업데이트 주기: 주1일 (매일 자정)
           </span>
+          <button id="btnRefresh" onclick="refreshLiveCsv()" title="구글 시트 데이터 새로고침 / Refresh Live CSV"
+            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-600 border border-slate-300 hover:border-blue-300 transition-colors cursor-pointer shadow-2xs">
+            <span id="refreshIcon" class="inline-block">↻</span>
+            <span id="refreshBtnText" class="hidden sm:inline">새로고침</span>
+          </button>
         </div>
       </div>
 
@@ -73,8 +79,6 @@
         <div class="relative">
           <select id="monthSelect" onchange="onMonthChange()" aria-label="Month Selector"
             class="appearance-none bg-white border border-slate-300 hover:border-blue-500 text-slate-800 text-xs font-semibold rounded-lg pl-3 pr-7 py-1.5 shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 cursor-pointer transition-colors">
-            <option value="2026-11">2026년 11월</option>
-            <option value="2026-12">2026년 12월</option>
           </select>
           <span class="pointer-events-none absolute inset-y-0 right-2 flex items-center text-slate-400 text-[10px]">▼</span>
         </div>
@@ -166,10 +170,10 @@
       <div class="flex flex-wrap items-center justify-between gap-2 mb-2 shrink-0">
         <div>
           <h2 id="chartTitle" class="text-sm sm:text-base font-bold text-slate-900">
-            인턴별 총 근무시간 및 12:10am 이후 근무 횟수 현황 — 전체 14명
+            인원별 누적 근무시간 및 12:10am 이후 근무 횟수
           </h2>
           <p id="chartSubtitle" class="text-[11px] text-slate-500">
-            파란색 막대: 총 근무시간 · 검정색 점: 12:10am 이후 근무 횟수 · 마우스 오버 시 상세 시간 확인
+            Google Sheets 실시간 연동 · 마우스 오버 시 파트 및 상세 근무 시간 확인
           </p>
         </div>
 
@@ -193,12 +197,6 @@
       <!-- Canvas Wrapper -->
       <div class="relative flex-1 w-full min-h-0">
         <canvas id="comboChart"></canvas>
-        <!-- Empty / Scheduled Overlay for Dec 2026 -->
-        <div id="emptyOverlay" class="hidden absolute inset-0 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 pointer-events-none">
-          <span class="text-2xl mb-1">📅</span>
-          <p id="emptyOverlayTitle" class="text-sm font-bold text-slate-700">2026년 12월 근무 데이터 집계 예정</p>
-          <p id="emptyOverlaySub" class="text-xs text-slate-500 mt-0.5">매주 자정 자동 업데이트를 통해 순차 반영됩니다.</p>
-        </div>
       </div>
 
     </section>
@@ -210,182 +208,289 @@
     Chart.register(ChartDataLabels);
 
     // =========================================================================
-    // 1. EXACT SPREADSHEET DATASET (Recalculated with strictly > 12:10 AM rule)
+    // 1. LIVE GOOGLE SHEETS CSV CONFIG & INTERN MASTER DIRECTORY
     // =========================================================================
-    const internData = [
+    const SHEET_CSV_URL =
+      'https://docs.google.com/spreadsheets/d/e/2PACX-1vQAYVjs5Jya2YVKDNeq5xAUGS8siqPohr-V2bXld3_9KJoedNMoo0wsBmRfLWN1LQ/pub?output=csv';
+
+    const INTERN_MASTER = [
+      { fullName: 'Tae Hun Kim',   firstName: 'Tae Hun',   koName: '김태훈', dept: 'FG' },
+      { fullName: 'Minseo Kim',    firstName: 'Minseo',    koName: '김민서', dept: 'RM' },
+      { fullName: 'Junho Bae',     firstName: 'Junho',     koName: '배준호', dept: 'Cell' },
+      { fullName: 'Jihye Lim',     firstName: 'Jihye',     koName: '임지혜', dept: 'Cell' },
+      { fullName: 'Yoonseo Cha',   firstName: 'Yoonseo',   koName: '차윤서', dept: 'RM' },
+      { fullName: 'Seunghyun Lee', firstName: 'Seunghyun', koName: '이승현', dept: 'RM' },
+      { fullName: 'Yuha Kim',      firstName: 'Yuha',      koName: '김유하', dept: 'RM' },
+      { fullName: 'Jisung Heo',    firstName: 'Jisung',    koName: '허지성', dept: 'FG' },
+      { fullName: 'Sangyeon Lee',  firstName: 'Sangyeon',  koName: '이상연', dept: 'FG' },
+      { fullName: 'Sieun Kim',     firstName: 'Sieun',     koName: '김시은', dept: 'RM' },
+      { fullName: 'Suyeon Park',   firstName: 'Suyeon',    koName: '박수연', dept: 'Cell' },
+      { fullName: 'Subin Hwang',   firstName: 'Subin',     koName: '황수빈', dept: 'FG' },
+      { fullName: 'Gaeun Han',     firstName: 'Gaeun',     koName: '한가은', dept: 'RM' },
+      { fullName: 'Garam Jo',      firstName: 'Garam',     koName: '조가람', dept: 'FG' }
+    ];
+
+    // Fallback dataset (used automatically if offline or CORS blocked)
+    const FALLBACK_WEEKS = [
       {
-        firstName: 'Tae Hun',
-        name: 'Tae Hun Kim',
-        koName: '김태훈',
-        dept: 'FG',
-        novW1: { hours: 66.5, midnight: 1, logs: ['11/16 (2:43pm~1:00am)'] },
-        novW2: { hours: 6.7, midnight: 0, logs: [] }, // Ended 12:10am exact -> 0
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
+        id: '2026-11_Nov 16~22',
+        monthKey: '2026-11',
+        rawLabel: 'Nov 16~22',
+        koLabel: '11/16 ~ 11/22',
+        enLabel: 'Nov 16 ~ 22',
+        records: {
+          'Tae Hun Kim':   { hours: 66.5, midnight: 1, logs: ['11/16 (2:43pm~1:00am)'] },
+          'Minseo Kim':    { hours: 63.5, midnight: 0, logs: [] },
+          'Junho Bae':     { hours: 54.3, midnight: 0, logs: [] },
+          'Jihye Lim':     { hours: 53.3, midnight: 5, logs: ['11/18 (10:38pm~1:49pm)', '11/19 (10:54pm~8:54am)', '11/20 (7:45pm~9:17am)', '11/21 (8:07pm~8:50am)', '11/22 (8:05pm~12:00pm)'] },
+          'Yoonseo Cha':   { hours: 57.0, midnight: 0, logs: [] },
+          'Seunghyun Lee': { hours: 46.0, midnight: 0, logs: [] },
+          'Yuha Kim':      { hours: 45.1, midnight: 0, logs: [] },
+          'Jisung Heo':    { hours: 52.2, midnight: 0, logs: [] },
+          'Sangyeon Lee':  { hours: 41.1, midnight: 1, logs: ['11/17 (5:02pm~12:16am)'] },
+          'Sieun Kim':     { hours: 50.1, midnight: 0, logs: [] },
+          'Suyeon Park':   { hours: 49.1, midnight: 4, logs: ['11/16 (3:24pm~12:35am)', '11/17 (4:15pm~12:55am)', '11/18 (3:30pm~12:25am)', '11/19 (12:01pm~12:27am)'] },
+          'Subin Hwang':   { hours: 31.7, midnight: 0, logs: [] },
+          'Gaeun Han':     { hours: 18.8, midnight: 1, logs: ['11/22 (2:09pm~12:32am)'] },
+          'Garam Jo':      { hours: 12.8, midnight: 0, logs: [] }
+        }
       },
       {
-        firstName: 'Minseo',
-        name: 'Minseo Kim',
-        koName: '김민서',
-        dept: 'RM',
-        novW1: { hours: 63.5, midnight: 0, logs: [] },
-        novW2: { hours: 9.5, midnight: 0, logs: [] }, // Ended 12:05am -> 0
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Junho',
-        name: 'Junho Bae',
-        koName: '배준호',
-        dept: 'Cell',
-        novW1: { hours: 54.3, midnight: 0, logs: [] },
-        novW2: { hours: 11.5, midnight: 0, logs: [] }, // Ended 12:05am -> 0
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Jihye',
-        name: 'Jihye Lim',
-        koName: '임지혜',
-        dept: 'Cell',
-        novW1: {
-          hours: 53.3,
-          midnight: 5,
-          logs: [
-            '11/18 (10:38pm~1:49pm)',
-            '11/19 (10:54pm~8:54am)',
-            '11/20 (7:45pm~9:17am)',
-            '11/21 (8:07pm~8:50am)',
-            '11/22 (8:05pm~12:00pm)'
-          ]
-        },
-        novW2: { hours: 12.0, midnight: 1, logs: ['11/23 (12:00am~12:00pm)'] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Yoonseo',
-        name: 'Yoonseo Cha',
-        koName: '차윤서',
-        dept: 'RM',
-        novW1: { hours: 57.0, midnight: 0, logs: [] },
-        novW2: { hours: 0.0, midnight: 0, logs: [] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Seunghyun',
-        name: 'Seunghyun Lee',
-        koName: '이승현',
-        dept: 'RM',
-        novW1: { hours: 46.0, midnight: 0, logs: [] },
-        novW2: { hours: 11.0, midnight: 0, logs: [] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Yuha',
-        name: 'Yuha Kim',
-        koName: '김유하',
-        dept: 'RM',
-        novW1: { hours: 45.1, midnight: 0, logs: [] },
-        novW2: { hours: 8.8, midnight: 0, logs: [] }, // Ended 12:05am -> 0
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Jisung',
-        name: 'Jisung Heo',
-        koName: '허지성',
-        dept: 'FG',
-        novW1: { hours: 52.2, midnight: 0, logs: [] },
-        novW2: { hours: 0.0, midnight: 0, logs: [] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Sangyeon',
-        name: 'Sangyeon Lee',
-        koName: '이상연',
-        dept: 'FG',
-        novW1: { hours: 41.1, midnight: 1, logs: ['11/17 (5:02pm~12:16am)'] },
-        novW2: { hours: 11.0, midnight: 0, logs: [] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Sieun',
-        name: 'Sieun Kim',
-        koName: '김시은',
-        dept: 'RM',
-        novW1: { hours: 50.1, midnight: 0, logs: [] },
-        novW2: { hours: 0.0, midnight: 0, logs: [] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Suyeon',
-        name: 'Suyeon Park',
-        koName: '박수연',
-        dept: 'Cell',
-        novW1: {
-          hours: 49.1,
-          midnight: 4,
-          logs: [
-            '11/16 (3:24pm~12:35am)',
-            '11/17 (4:15pm~12:55am)',
-            '11/18 (3:30pm~12:25am)',
-            '11/19 (12:01pm~12:27am)'
-          ]
-        },
-        novW2: { hours: 0.0, midnight: 0, logs: [] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Subin',
-        name: 'Subin Hwang',
-        koName: '황수빈',
-        dept: 'FG',
-        novW1: { hours: 31.7, midnight: 0, logs: [] },
-        novW2: { hours: 6.8, midnight: 0, logs: [] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Gaeun',
-        name: 'Gaeun Han',
-        koName: '한가은',
-        dept: 'RM',
-        novW1: { hours: 18.8, midnight: 1, logs: ['11/22 (2:09pm~12:32am)'] },
-        novW2: { hours: 11.6, midnight: 0, logs: [] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
-      },
-      {
-        firstName: 'Garam',
-        name: 'Garam Jo',
-        koName: '조가람',
-        dept: 'FG',
-        novW1: { hours: 12.8, midnight: 0, logs: [] },
-        novW2: { hours: 9.7, midnight: 0, logs: [] },
-        decW1: { hours: 0.0, midnight: 0, logs: [] }
+        id: '2026-11_Nov 23~29',
+        monthKey: '2026-11',
+        rawLabel: 'Nov 23~29',
+        koLabel: '11/23 ~ 11/29',
+        enLabel: 'Nov 23 ~ 29',
+        records: {
+          'Tae Hun Kim':   { hours: 6.7,  midnight: 0, logs: [] },
+          'Minseo Kim':    { hours: 9.5,  midnight: 0, logs: [] },
+          'Junho Bae':     { hours: 11.5, midnight: 0, logs: [] },
+          'Jihye Lim':     { hours: 12.0, midnight: 1, logs: ['11/23 (12:00am~12:00pm)'] },
+          'Yoonseo Cha':   { hours: 0.0,  midnight: 0, logs: [] },
+          'Seunghyun Lee': { hours: 11.0, midnight: 0, logs: [] },
+          'Yuha Kim':      { hours: 8.8,  midnight: 0, logs: [] },
+          'Jisung Heo':    { hours: 0.0,  midnight: 0, logs: [] },
+          'Sangyeon Lee':  { hours: 11.0, midnight: 0, logs: [] },
+          'Sieun Kim':     { hours: 0.0,  midnight: 0, logs: [] },
+          'Suyeon Park':   { hours: 0.0,  midnight: 0, logs: [] },
+          'Subin Hwang':   { hours: 6.8,  midnight: 0, logs: [] },
+          'Gaeun Han':     { hours: 11.6, midnight: 0, logs: [] },
+          'Garam Jo':      { hours: 9.7,  midnight: 0, logs: [] }
+        }
       }
     ];
 
     // =========================================================================
-    // 2. STATE & I18N DICTIONARY
+    // 2. CSV PARSER & POST-12:10AM SHIFT EVALUATOR
     // =========================================================================
+    function parseCsvRows(text) {
+      const rows = [];
+      let row = [];
+      let cur = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        const next = text[i + 1];
+
+        if (ch === '"') {
+          if (inQuotes && next === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === ',' && !inQuotes) {
+          row.push(cur.trim());
+          cur = '';
+        } else if ((ch === '\n' || (ch === '\r' && next === '\n')) && !inQuotes) {
+          if (ch === '\r') i++;
+          row.push(cur.trim());
+          rows.push(row);
+          row = [];
+          cur = '';
+        } else if (ch !== '\r') {
+          cur += ch;
+        }
+      }
+      if (cur.length > 0 || row.length > 0) {
+        row.push(cur.trim());
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    function parseTimeToMinutes(timeStr) {
+      const m = timeStr.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+      if (!m) return null;
+      let hour = parseInt(m[1], 10);
+      const min = parseInt(m[2], 10);
+      const meridiem = m[3].toLowerCase();
+
+      if (meridiem === 'am') {
+        if (hour === 12) hour = 0;
+      } else {
+        if (hour !== 12) hour += 12;
+      }
+      return hour * 60 + min;
+    }
+
+    // Rule: Post-12:10am if end time is 12:11am..11:59am OR overnight shift crossing midnight
+    function isPost1210AmShift(rangeStr) {
+      if (!rangeStr || !rangeStr.includes('~')) return false;
+      const parts = rangeStr.split('~');
+      const startMin = parseTimeToMinutes(parts[0]);
+      const endMin = parseTimeToMinutes(parts[1]);
+      if (startMin === null || endMin === null) return false;
+
+      // Case A: Ends in AM after 12:10am (11 mins to 719 mins -> 12:11am to 11:59am)
+      if (endMin > 10 && endMin < 720) {
+        return true;
+      }
+      // Case B: Overnight shift starting late evening (>= 7:00pm / 1140) or 12:00am (0) and ending at/after noon
+      if ((startMin >= 1140 || startMin === 0) && endMin >= 720) {
+        return true;
+      }
+      return false;
+    }
+
+    function detectMonthAndLabels(rawBlockHeader) {
+      const monthNames = {
+        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+      };
+      const match = rawBlockHeader.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*(\d{1,2})\s*[~\-]\s*(?:(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*)?(\d{1,2})/i);
+      if (match) {
+        const m1 = monthNames[match[1].toLowerCase().slice(0, 3)];
+        const d1 = match[2];
+        const m2 = match[3] ? monthNames[match[3].toLowerCase().slice(0, 3)] : m1;
+        const d2 = match[4];
+        const monthKey = `2026-${m1}`;
+        const koLabel = m1 === m2
+          ? `${parseInt(m1, 10)}/${d1} ~ ${parseInt(m1, 10)}/${d2}`
+          : `${parseInt(m1, 10)}/${d1} ~ ${parseInt(m2, 10)}/${d2}`;
+        const enLabel = match[3]
+          ? `${match[1]} ${d1} ~ ${match[3]} ${d2}`
+          : `${match[1]} ${d1} ~ ${d2}`;
+        return { monthKey, koLabel, enLabel };
+      }
+      return { monthKey: '2026-11', koLabel: rawBlockHeader, enLabel: rawBlockHeader };
+    }
+
+    function parseSheetCsvToWeeks(csvText) {
+      const rows = parseCsvRows(csvText);
+      const weeks = [];
+      let currentWeek = null;
+      let dateHeaders = [];
+      let cumColIdx = -1;
+
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r];
+        const col0 = (row[0] || '').trim();
+        const col1 = (row[1] || '').trim();
+
+        // Detect Weekly Block Header e.g. "Nov 16~22", "Nov 23~29", "Dec 1~7"
+        if (/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*\d{1,2}\s*[~\-]/i.test(col0)) {
+          if (currentWeek) weeks.push(currentWeek);
+          const meta = detectMonthAndLabels(col0);
+          dateHeaders = row.slice();
+          cumColIdx = -1;
+          currentWeek = {
+            id: `${meta.monthKey}_${col0}`,
+            monthKey: meta.monthKey,
+            rawLabel: col0,
+            koLabel: meta.koLabel,
+            enLabel: meta.enLabel,
+            records: {}
+          };
+          INTERN_MASTER.forEach(m => {
+            currentWeek.records[m.fullName] = { hours: 0, midnight: 0, logs: [] };
+          });
+          continue;
+        }
+
+        if (!currentWeek) continue;
+
+        // Detect sub-header row ("이름", "파트", ..., "누적 근무시간 (주단위)")
+        if (col0 === '이름' || col1 === '파트') {
+          cumColIdx = row.findIndex(cell => cell.includes('누적'));
+          continue;
+        }
+
+        // Match Intern Row
+        const intern = INTERN_MASTER.find(
+          m => m.fullName.toLowerCase() === col0.toLowerCase() || m.koName === col0
+        );
+
+        if (intern) {
+          let dailyHoursSum = 0;
+          let midnightCount = 0;
+          const logs = [];
+          const endCol = cumColIdx > 2 ? cumColIdx : row.length;
+
+          for (let c = 2; c < endCol; c++) {
+            const val = (row[c] || '').trim();
+            if (!val) continue;
+
+            if (val.includes('~')) {
+              if (isPost1210AmShift(val)) {
+                midnightCount++;
+                // Find date label from current or previous column header
+                const rawDate = (dateHeaders[c] || dateHeaders[c - 1] || '').replace(/월\s*/, '/').replace('일', '').trim();
+                logs.push(rawDate ? `${rawDate} (${val})` : val);
+              }
+            } else {
+              const num = parseFloat(val);
+              if (!isNaN(num)) {
+                dailyHoursSum += num;
+              }
+            }
+          }
+
+          let totalHours = dailyHoursSum;
+          if (cumColIdx > 2 && row[cumColIdx]) {
+            const parsedCum = parseFloat(row[cumColIdx]);
+            if (!isNaN(parsedCum)) {
+              totalHours = parsedCum;
+            }
+          }
+
+          currentWeek.records[intern.fullName] = {
+            hours: Number(totalHours.toFixed(1)),
+            midnight: midnightCount,
+            logs
+          };
+        }
+      }
+
+      if (currentWeek) weeks.push(currentWeek);
+      return weeks;
+    }
+
+    // =========================================================================
+    // 3. STATE, I18N & DYNAMIC DROPDOWNS
+    // =========================================================================
+    let parsedWeeks = FALLBACK_WEEKS;
+    let isLiveData = false;
     let currentLang = 'ko';
     let selectedMonth = '2026-11';
-    let selectedWeek = 'nov-all';
+    let selectedWeek = 'ALL_MONTH';
     let chartInstance = null;
-
-    const weekOptionsMap = {
-      '2026-11': [
-        { value: 'nov-all', ko: '11월 전체 누적', en: 'Nov Cumulative' },
-        { value: 'nov-w1',  ko: '11/16 ~ 11/22 (1주차)', en: '11/16 ~ 11/22 (Week 1)' },
-        { value: 'nov-w2',  ko: '11/23 ~ 11/29 (2주차)', en: '11/23 ~ 11/29 (Week 2)' }
-      ],
-      '2026-12': [
-        { value: 'dec-all', ko: '12월 전체 누적', en: 'Dec Cumulative' },
-        { value: 'dec-w1',  ko: '11/30 ~ 12/06 (1주차 예정)', en: '11/30 ~ 12/06 (Week 1 Scheduled)' }
-      ]
-    };
 
     const i18n = {
       ko: {
-        appTitle: 'Matteson 인턴 근무시간 현황',
+        appTitle: 'Matteson 인턴 근무시간 모니터링',
         appSubtitle: 'Matteson Plant Intern Work Time & Post-12:10am Shift Tracking',
         updateCycleLabel: '업데이트 주기: 주1일 (매일 자정)',
-        monthOptions: { '2026-11': '2026년 11월', '2026-12': '2026년 12월' },
+        refreshBtn: '새로고침',
+        formatMonth: (mKey) => {
+          const [y, m] = mKey.split('-');
+          return `${y}년 ${parseInt(m, 10)}월`;
+        },
+        formatMonthAll: (mKey) => {
+          const m = parseInt(mKey.split('-')[1], 10);
+          return `${m}월 전체 누적`;
+        },
         kpiSummaryTitle: '근무 요약 (14명)',
         kpiLimitBadge: '42.0h 기준',
         kpiAvgLabel: '평균 근무',
@@ -397,26 +502,35 @@
         timesSuffix: '회',
         noneOver42: '초과 근무자 없음 (0명)',
         noneMidnight: '12:10am 이후 근무자 없음 (0명)',
-        chartTitle: '인턴별 총 근무시간 및 12:10am 이후 근무 횟수 현황 — 전체 14명',
-        chartSubtitle: '파란색 막대: 총 근무시간 · 검정색 점: 12:10am 이후 근무 횟수 · 마우스 오버 시 상세 시간 확인',
+        chartTitle: '인원별 누적 근무시간 및 12:10am 이후 근무 횟수',
+        chartSubtitleLive: 'Google Sheets 실시간 연동 · 마우스 오버 시 파트 및 상세 근무 시간 확인',
+        chartSubtitleCached: '내장 시트 데이터 기준 · 마우스 오버 시 파트 및 상세 근무 시간 확인',
         legendBar: '총 근무시간 (h)',
         legendDot: '12:10am 이후 근무 횟수',
         legendMax: '최대 기준선 42h',
         yLeftTitle: '총 근무시간 (Hours)',
         yRightTitle: '12:10am 이후 근무 횟수 (회)',
-        maxLineLabel: '최대 기준선 42h',
+        maxLineLabel: '42h Max',
         tooltipHours: '총 근무시간',
         tooltipMidnight: '12:10am 이후 근무 횟수',
         tooltipOver: (diff) => `+${diff.toFixed(1)}h 초과`,
-        tooltipNormal: '42h 이내',
-        emptyOverlayTitle: '2026년 12월 근무 데이터 집계 예정',
-        emptyOverlaySub: '주 1일(매일 자정) 업데이트를 통해 순차 반영됩니다.'
+        tooltipNormal: '42h 이내'
       },
       en: {
-        appTitle: 'Matteson Intern Work Time Status',
+        appTitle: 'Matteson Intern Work Time Monitoring',
         appSubtitle: 'Matteson Plant Intern Work Time & Post-12:10am Shift Tracking',
         updateCycleLabel: 'Update Cycle: Weekly (Daily Midnight)',
-        monthOptions: { '2026-11': 'Nov 2026', '2026-12': 'Dec 2026' },
+        refreshBtn: 'Refresh',
+        formatMonth: (mKey) => {
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const [y, m] = mKey.split('-');
+          return `${months[parseInt(m, 10) - 1]} ${y}`;
+        },
+        formatMonthAll: (mKey) => {
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const m = parseInt(mKey.split('-')[1], 10);
+          return `${months[m - 1]} Monthly Total`;
+        },
         kpiSummaryTitle: 'Work Summary (14 Interns)',
         kpiLimitBadge: 'Max 42.0h',
         kpiAvgLabel: 'Avg Hours',
@@ -428,49 +542,57 @@
         timesSuffix: 'x',
         noneOver42: 'None Over 42h (0)',
         noneMidnight: 'No Post-12:10am Shifts (0)',
-        chartTitle: 'Total Work Hours & Post-12:10am Shifts — All 14 Interns',
-        chartSubtitle: 'Blue Bar: Total Work Hours · Black Dot: Post-12:10am Shifts · Hover for shift logs',
+        chartTitle: 'Cumulative Work Hours & Post-12:10am Shifts by Intern',
+        chartSubtitleLive: 'Live Google Sheets Sync · Hover bars/dots for department & shift logs',
+        chartSubtitleCached: 'Synced Sheet Snapshot · Hover bars/dots for department & shift logs',
         legendBar: 'Total Hours (h)',
         legendDot: 'Post-12:10am Shifts',
         legendMax: 'Max Limit 42h',
         yLeftTitle: 'Total Work Hours (h)',
         yRightTitle: 'Post-12:10am Shifts',
-        maxLineLabel: 'Max Limit 42h',
+        maxLineLabel: '42h Max',
         tooltipHours: 'Total Hours',
         tooltipMidnight: 'Post-12:10am Shifts',
         tooltipOver: (diff) => `+${diff.toFixed(1)}h Over 42h`,
-        tooltipNormal: 'Within 42h',
-        emptyOverlayTitle: 'December 2026 Schedule Pending',
-        emptyOverlaySub: 'Data updates automatically on the weekly midnight cycle.'
+        tooltipNormal: 'Within 42h'
       }
     };
 
-    // =========================================================================
-    // 3. DROPDOWN & LANGUAGE HANDLERS
-    // =========================================================================
     function populateDropdowns() {
       const t = i18n[currentLang];
+      const availableMonths = [...new Set(parsedWeeks.map(w => w.monthKey))].sort();
+      if (!availableMonths.includes(selectedMonth)) {
+        selectedMonth = availableMonths[0] || '2026-11';
+      }
+
       const monthSel = document.getElementById('monthSelect');
-      Array.from(monthSel.options).forEach(opt => {
-        opt.textContent = t.monthOptions[opt.value];
-      });
+      monthSel.innerHTML = availableMonths
+        .map(mKey => `<option value="${mKey}">${t.formatMonth(mKey)}</option>`)
+        .join('');
       monthSel.value = selectedMonth;
 
+      const weeksInMonth = parsedWeeks.filter(w => w.monthKey === selectedMonth);
       const weekSel = document.getElementById('weekSelect');
-      const weeks = weekOptionsMap[selectedMonth] || [];
-      weekSel.innerHTML = weeks
-        .map(w => `<option value="${w.value}">${currentLang === 'ko' ? w.ko : w.en}</option>`)
-        .join('');
+      const weekOptions = [
+        `<option value="ALL_MONTH">${t.formatMonthAll(selectedMonth)}</option>`,
+        ...weeksInMonth.map((w, idx) => {
+          const label = currentLang === 'ko'
+            ? `${w.koLabel} (${idx + 1}주차)`
+            : `${w.enLabel} (Week ${idx + 1})`;
+          return `<option value="${w.id}">${label}</option>`;
+        })
+      ];
+      weekSel.innerHTML = weekOptions.join('');
 
-      if (!weeks.some(w => w.value === selectedWeek)) {
-        selectedWeek = weeks[0].value;
+      if (selectedWeek !== 'ALL_MONTH' && !weeksInMonth.some(w => w.id === selectedWeek)) {
+        selectedWeek = 'ALL_MONTH';
       }
       weekSel.value = selectedWeek;
     }
 
     function onMonthChange() {
       selectedMonth = document.getElementById('monthSelect').value;
-      selectedWeek = weekOptionsMap[selectedMonth][0].value;
+      selectedWeek = 'ALL_MONTH';
       populateDropdowns();
       renderDashboard();
     }
@@ -496,35 +618,30 @@
     }
 
     // =========================================================================
-    // 4. DATA PROCESSING
+    // 4. DATA AGGREGATION & LIVE FETCH
     // =========================================================================
     function getRecords() {
-      const mapped = internData.map(item => {
+      const targetWeeks = selectedWeek === 'ALL_MONTH'
+        ? parsedWeeks.filter(w => w.monthKey === selectedMonth)
+        : parsedWeeks.filter(w => w.id === selectedWeek);
+
+      const mapped = INTERN_MASTER.map(intern => {
         let hours = 0;
         let midnight = 0;
         let logs = [];
 
-        if (selectedWeek === 'nov-w1') {
-          hours = item.novW1.hours;
-          midnight = item.novW1.midnight;
-          logs = item.novW1.logs;
-        } else if (selectedWeek === 'nov-w2') {
-          hours = item.novW2.hours;
-          midnight = item.novW2.midnight;
-          logs = item.novW2.logs;
-        } else if (selectedWeek === 'dec-all' || selectedWeek === 'dec-w1') {
-          hours = item.decW1.hours;
-          midnight = item.decW1.midnight;
-          logs = item.decW1.logs;
-        } else {
-          // nov-all (Nov Cumulative)
-          hours = Number((item.novW1.hours + item.novW2.hours).toFixed(1));
-          midnight = item.novW1.midnight + item.novW2.midnight;
-          logs = [...item.novW1.logs, ...item.novW2.logs];
-        }
+        targetWeeks.forEach(w => {
+          const rec = w.records[intern.fullName];
+          if (rec) {
+            hours += rec.hours;
+            midnight += rec.midnight;
+            logs = logs.concat(rec.logs);
+          }
+        });
 
+        hours = Number(hours.toFixed(1));
         return {
-          ...item,
+          ...intern,
           hours,
           midnight,
           logs,
@@ -536,17 +653,47 @@
       return mapped.sort((a, b) => b.hours - a.hours);
     }
 
+    async function refreshLiveCsv() {
+      const icon = document.getElementById('refreshIcon');
+      const sourceTag = document.getElementById('syncSourceTag');
+      if (icon) icon.classList.add('animate-spin');
+
+      try {
+        const res = await fetch(`${SHEET_CSV_URL}&_t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const csvText = await res.text();
+        const weeks = parseSheetCsvToWeeks(csvText);
+
+        if (weeks.length > 0) {
+          parsedWeeks = weeks;
+          isLiveData = true;
+          if (sourceTag) sourceTag.textContent = '(Live CSV)';
+        } else {
+          throw new Error('Empty parsed weeks');
+        }
+      } catch (err) {
+        console.warn('Using embedded sheet fallback:', err.message);
+        parsedWeeks = FALLBACK_WEEKS;
+        isLiveData = false;
+        if (sourceTag) sourceTag.textContent = '(Sheet Sync)';
+      } finally {
+        if (icon) icon.classList.remove('animate-spin');
+        populateDropdowns();
+        renderDashboard();
+      }
+    }
+
     // =========================================================================
-    // 5. RENDER SUMMARY, LISTS & COMBO CHART
+    // 5. RENDER DASHBOARD & COMBO CHART
     // =========================================================================
     function renderDashboard() {
       const t = i18n[currentLang];
       const records = getRecords();
 
-      // Update Header & Summary Labels
       document.getElementById('appTitle').textContent = t.appTitle;
       document.getElementById('appSubtitle').textContent = t.appSubtitle;
       document.getElementById('updateCycleLabel').textContent = t.updateCycleLabel;
+      document.getElementById('refreshBtnText').textContent = t.refreshBtn;
 
       document.getElementById('kpiSummaryTitle').textContent = t.kpiSummaryTitle;
       document.getElementById('kpiLimitBadge').textContent = t.kpiLimitBadge;
@@ -558,26 +705,17 @@
       document.getElementById('midnightTitle').innerHTML = `<span>🌙</span> <span>${t.midnightTitle}</span>`;
 
       document.getElementById('chartTitle').textContent = t.chartTitle;
-      document.getElementById('chartSubtitle').textContent = t.chartSubtitle;
+      document.getElementById('chartSubtitle').textContent = isLiveData
+        ? t.chartSubtitleLive
+        : t.chartSubtitleCached;
       document.getElementById('legendBar').textContent = t.legendBar;
       document.getElementById('legendDot').textContent = t.legendDot;
       document.getElementById('legendMax').textContent = t.legendMax;
 
-      // Empty overlay toggle for Dec 2026
-      const emptyOverlay = document.getElementById('emptyOverlay');
-      if (selectedMonth === '2026-12') {
-        document.getElementById('emptyOverlayTitle').textContent = t.emptyOverlayTitle;
-        document.getElementById('emptyOverlaySub').textContent = t.emptyOverlaySub;
-        emptyOverlay.classList.remove('hidden');
-      } else {
-        emptyOverlay.classList.add('hidden');
-      }
-
-      // Average Work Hours
       const avgHours = records.reduce((sum, r) => sum + r.hours, 0) / records.length;
       document.getElementById('kpiAvgValue').textContent = `${avgHours.toFixed(1)}h`;
 
-      // Card 2: Over 42h Workers Badges
+      // Card 2: Over 42h Workers
       const over42List = records.filter(r => r.isOver42);
       document.getElementById('over42CountBadge').textContent =
         currentLang === 'ko' ? `${over42List.length}${t.countSuffix}` : `${over42List.length}`;
@@ -595,7 +733,7 @@
         }).join('');
       }
 
-      // Card 3: Post-12:10am Workers Badges
+      // Card 3: Post-12:10am Workers
       const midnightList = records
         .filter(r => r.hasMidnight)
         .sort((a, b) => b.midnight - a.midnight);
@@ -620,8 +758,6 @@
 
     function renderComboChart(records, t) {
       const ctx = document.getElementById('comboChart').getContext('2d');
-
-      // English First Name ONLY on X-axis
       const labels = records.map(r => r.firstName);
       const hoursData = records.map(r => r.hours);
       const midnightData = records.map(r => r.midnight);
@@ -631,13 +767,12 @@
       }
 
       const maxHours = Math.max(...hoursData, 50);
-      const yMaxHours = Math.ceil((maxHours + 12) / 10) * 10;
+      const yMaxHours = Math.max(85, Math.ceil((maxHours + 12) / 10) * 10);
 
       chartInstance = new Chart(ctx, {
         data: {
           labels: labels,
           datasets: [
-            // Dataset 1: Black Dots ONLY (No connecting lines) for Post-12:10am Count
             {
               type: 'line',
               label: t.tooltipMidnight,
@@ -668,7 +803,6 @@
                 formatter: (val) => (val > 0 ? `${val}${t.timesSuffix}` : '0')
               }
             },
-            // Dataset 2: Uniform Royal Blue Bars for Total Work Hours
             {
               type: 'bar',
               label: t.tooltipHours,
@@ -690,7 +824,10 @@
                   return rec.isOver42 ? '#dc2626' : '#1e3a8a';
                 },
                 font: { size: 10.5, weight: '700' },
-                formatter: (val) => `${val.toFixed(1)}h`
+                formatter: (val, ctx) => {
+                  const rec = records[ctx.dataIndex];
+                  return rec.isOver42 ? `⚠ ${val.toFixed(1)}h` : `${val.toFixed(1)}h`;
+                }
               }
             }
           ]
@@ -716,7 +853,7 @@
               callbacks: {
                 title: (items) => {
                   const rec = records[items[0].dataIndex];
-                  return `${rec.name} (${rec.koName}) — ${rec.dept}`;
+                  return `${rec.fullName} (${rec.koName}) — ${rec.dept}`;
                 },
                 label: (context) => {
                   const rec = records[context.dataIndex];
@@ -821,6 +958,7 @@
     window.addEventListener('DOMContentLoaded', () => {
       populateDropdowns();
       renderDashboard();
+      refreshLiveCsv();
     });
   </script>
 </body>
